@@ -1,7 +1,5 @@
-import { App, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
+import { App, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from 'obsidian';
 import { Client, Intents, TextChannel, Interaction, CommandInteraction } from 'discord.js';
-import { EmbedBuilder } from "@discordjs/builders";
-
 
 interface PluginSettings {
 	botToken: string,
@@ -194,11 +192,13 @@ export default class MyPlugin extends Plugin {
 
 			switch (commandInteraction.commandName) {
 				case 'setnote':
+					// eslint-disable-next-line no-case-declarations
 					const pathOption = commandInteraction.options.getString('path', true);
 					await commandInteraction.deferReply();
-					await this.updateTargetNote(pathOption, commandInteraction, true);
+					await this.updateTargetNote(pathOption, commandInteraction);
 					break;
 				case 'createnote':
+					// eslint-disable-next-line no-case-declarations
 					const nameOption = commandInteraction.options.getString('name', true);
 					await this.createNewNote(nameOption, commandInteraction);
 					break;
@@ -233,7 +233,7 @@ export default class MyPlugin extends Plugin {
 				options: [
 					{
 						name: 'path',
-						description: 'Obsidianノートのフルパス（例: `Notes/Discord Inbox.md`）。',
+						description: 'Obsidianノートのフルパス(例: `Notes/Discord Inbox.md`)。',
 						type: 3,
 						required: true,
 					},
@@ -241,11 +241,11 @@ export default class MyPlugin extends Plugin {
 			},
 			{
 				name: 'createnote',
-				description: '新しいObsidianノートを作成し、保存先に設定します。',
+				description: '新しいObsidianノートを作成します。フォルダ階層を含めることも可能です。', // 説明文を更新
 				options: [
 					{
 						name: 'name',
-						description: '新しいObsidianノートの名前（例: `日次Discordログ`）。',
+						description: '新しいObsidianノートのパスと名前(例: `フォルダ名/新しいノート`)。', // 説明文を更新
 						type: 3,
 						required: true,
 					},
@@ -263,6 +263,7 @@ export default class MyPlugin extends Plugin {
 			console.log('スラッシュコマンドが登録されました:', commands);
 		} catch (error) {
 			console.error('スラッシュコマンドの登録に失敗しました:', error);
+			// @ts-ignore
 			new Notice(`スラッシュコマンドの登録に失敗しました: ${error.message}`);
 		}
 	}
@@ -274,7 +275,7 @@ export default class MyPlugin extends Plugin {
 	 * @param channelName メッセージが送信されたチャンネル名
 	 */
 	private async saveMessageToObsidianNote(content: string, author: string, channelName: string) {
-		const targetFilePath = this.settings.targetNotePath;
+		const targetFilePath = this.settings.targetNotePath + ".md";
 
 		let file = this.app.vault.getAbstractFileByPath(targetFilePath);
 
@@ -285,14 +286,14 @@ export default class MyPlugin extends Plugin {
 				console.log(`新しいノートを作成しました: ${targetFilePath}`);
 			} catch (error) {
 				console.error(`ノート ${targetFilePath} の作成に失敗しました:`, error);
+				// @ts-ignore
 				new Notice(`エラー: ノート ${targetFilePath} の作成に失敗しました: ${error.message}`);
 				return;
 			}
 		}
 
 		if (file instanceof TFile) {
-			const timestamp = new Date().toLocaleString();
-			const messageToSave = `\n---\n**[${timestamp}] ${author} in #${channelName}:**\n${content}\n`;
+			const messageToSave = `${content}\n`;
 			await this.app.vault.append(file, messageToSave);
 			console.log(`メッセージを ${targetFilePath} に保存しました。`);
 		} else {
@@ -303,18 +304,13 @@ export default class MyPlugin extends Plugin {
 
 	/**
 	 * Discordコマンドに応じてObsidianの保存先ノートパスを更新します。
-	 * この関数は、親の関数から呼ばれる際に、すでに deferReply されていることを前提とします。
 	 * @param newPath 新しいノートパス
-	 * @param interaction Discordコマンドインタラクションオブジェクト（応答用）
-	 * @param shouldReply この関数自身が deferReply/editReply を行うべきか (主に直接呼ばれる場合)
+	 * @param interaction Discordコマンドインタラクションオブジェクト(応答用)
 	 */
-	private async updateTargetNote(newPath: string, interaction: CommandInteraction, shouldReply: boolean = false) {
-		if (shouldReply) {
-			await interaction.deferReply();
-		}
+	private async updateTargetNote(newPath: string, interaction: CommandInteraction) {
 
 		if (!newPath || newPath.length > 255) {
-			await interaction.editReply('無効なノートパスが指定されました。有効なパスを指定してください（例: `フォルダ名/ノート名.md`）。');
+			await interaction.editReply('無効なノートパスが指定されました。有効なパスを指定してください(例: `フォルダ名/ノート名.md`)。');
 			return;
 		}
 
@@ -330,71 +326,103 @@ export default class MyPlugin extends Plugin {
 
 	/**
 	 * Discordコマンドに応じてObsidianに新しいノートを作成します。
-	 * @param noteName 新しいノート名 (拡張子なしでも可)
-	 * @param interaction Discordコマンドインタラクションオブジェクト（応答用）
+	 * @param noteName 新しいノートの名前(フォルダ階層を含む場合も)
+	 * @param interaction Discordコマンドインタラクションオブジェクト(応答用)
 	 */
 	private async createNewNote(noteName: string, interaction: CommandInteraction) {
-		await interaction.deferReply(); // この関数で初期応答を送信
+		await interaction.deferReply();
 
-		const sanitizedNoteName = noteName.replace(/[\\/:*?"<>|]/g, '');
+		const INVALID_FILENAME_CHARS_EXCEPT_SLASH_AND_BACKSLASH_REGEX = /[<>:"|?*]/g;
+		const sanitizedNoteName = noteName.replace(INVALID_FILENAME_CHARS_EXCEPT_SLASH_AND_BACKSLASH_REGEX, '');
 		if (!sanitizedNoteName) {
 			await interaction.editReply('無効なノート名が指定されました。');
 			return;
 		}
-		const newPath = `${sanitizedNoteName}.md`;
 
+		let fullPath: string;
+		const lastSlashIndex = sanitizedNoteName.lastIndexOf('/');
+
+		if (lastSlashIndex !== -1) {
+			const folderPath = sanitizedNoteName.substring(0, lastSlashIndex);
+			const fileName = sanitizedNoteName.substring(lastSlashIndex + 1);
+
+			if (!fileName) {
+				await interaction.editReply('無効なパスです。ファイル名を指定してください。');
+				return;
+			}
+			fullPath = `${folderPath}/${fileName}.md`;
+
+			const folder = this.app.vault.getAbstractFileByPath(folderPath);
+			if (!folder || !(folder instanceof TFolder)) {
+				try {
+					await this.app.vault.createFolder(folderPath);
+					new Notice(`フォルダを作成しました: ${folderPath}`);
+					console.log(`フォルダを作成しました: ${folderPath}`);
+				} catch (folderError) {
+					console.error(`フォルダ ${folderPath} の作成に失敗しました:`, folderError);
+					// @ts-ignore
+					await interaction.editReply(`フォルダ \`${folderPath}\` の作成に失敗しました。エラー: ${folderError.message}`);
+					// @ts-ignore
+					new Notice(`エラー: フォルダの作成に失敗しました: ${folderError.message}`);
+					return;
+				}
+			}
+		} else {
+			fullPath = `${sanitizedNoteName}.md`;
+		}
 		try {
-			if (this.app.vault.getAbstractFileByPath(newPath)) {
-				await interaction.editReply(`ノート \`${newPath}\` は既に存在します。`/setnote` コマンドで選択してください。`);
-				new Notice(`ノートは既に存在します: ${newPath}`);
+			if (this.app.vault.getAbstractFileByPath(fullPath)) {
+				// @ts-ignore
+				await interaction.editReply(`ノート \`${fullPath}\` は既に存在します。`/setnote` コマンドで選択してください。`);
+				new Notice(`ノートは既に存在します: ${fullPath}`);
 				return;
 			}
 
-			const file = await this.app.vault.create(newPath, '');
-			await interaction.editReply(`新しいノート \`${newPath}\` をObsidianに作成しました。`); // 応答メッセージを修正
-			new Notice(`新しいノートを作成しました: ${newPath}`);
-			console.log(`新しいノートを作成しました: ${newPath}`);
-
-			// --- 変更点: ターゲットノートの更新ロジックを削除 ---
-			// updateTargetNote の呼び出しを完全に削除
-			// this.settings.targetNotePath = newPath; // これらの行も削除
-			// await this.saveSettings();
-			// new Notice(`Obsidianのターゲットノートパスを更新しました: ${newPath}`);
-			// console.log(`Obsidianのターゲットノートパスを更新しました: ${newPath}`);
-			// --- ここまで変更 ---
+			const file = await this.app.vault.create(fullPath, '');
+			await interaction.editReply(`新しいノート \`${fullPath}\` をObsidianに作成しました。`);
+			new Notice(`新しいノートを作成しました: ${fullPath}`);
+			console.log(`新しいノートを作成しました: ${fullPath}`);
 
 		} catch (error) {
 			console.error('新しいノートの作成に失敗しました:', error);
-			await interaction.editReply(`ノート \`${newPath}\` の作成に失敗しました。エラー: ${error.message}`);
+			// @ts-ignore
+			await interaction.editReply(`ノート \`${fullPath}\` の作成に失敗しました。エラー: ${error.message}`);
+			// @ts-ignore
 			new Notice(`エラー: ノートの作成に失敗しました: ${error.message}`);
 		}
 	}
 	/**
 	 * Discordコマンドに応じてObsidian Vault内のノートリストをDiscordに送信します。
-	 * @param interaction Discordコマンドインタラクションオブジェクト（応答用）
+	 * @param interaction Discordコマンドインタラクションオブジェクト(応答用)
 	 */
 	private async listObsidianNotes(interaction: CommandInteraction) {
-		await interaction.deferReply(); // 全員に見える「考え中...」応答
+		await interaction.deferReply();
 
 		const files = this.app.vault.getMarkdownFiles();
-		let fileList = files.map(file => `- ${file.path}`).join('\n');
+		let fileListContent = files.map(file => `- ${file.path}`).join('\n');
 
-		if (fileList.length === 0) {
-			fileList = "Vault内にMarkdownノートは見つかりませんでした。";
-		} else if (fileList.length > 1800) {
-			fileList = fileList.substring(0, 1800) + '\n... (省略)';
+		let responseMessage: string;
+
+		if (fileListContent.length === 0) {
+			responseMessage = "Obsidian Vault内にMarkdownノートは見つかりませんでした。\n";
+		} else {
+			const MAX_MESSAGE_LENGTH = 1900;
+
+			if (fileListContent.length > MAX_MESSAGE_LENGTH - 100) {
+				responseMessage = `**Obsidian Vault内のノート:**\n\`\`\`\n${fileListContent.substring(0, MAX_MESSAGE_LENGTH - 100 - 10)}\n... (省略)\n\`\`\`\n`;
+			} else {
+				responseMessage = `**Obsidian Vault内のノート:**\n\`\`\`\n${fileListContent}\n\`\`\`\n`;
+			}
 		}
 
-		try {
-			const embed = new EmbedBuilder()
-				.setColor(0x0099FF)
-				.setTitle('Obsidian Vault内のノート')
-				.setDescription(`\`\`\`\n${fileList}\n\`\`\`\n\n**現在保存しているノート:** \`${this.settings.targetNotePath}\``);
+		responseMessage += `\n**現在保存しているノート:** \`${this.settings.targetNotePath}\``;
 
-			await interaction.editReply({ embeds: [embed] }); // 最終応答
+
+		try {
+			await interaction.editReply({ content: responseMessage });
 		} catch (error) {
 			console.error('ノートリストをDiscordに送信できませんでした:', error);
-			await interaction.editReply('ノートリストの取得に失敗しました。コンソールを確認してください。'); // エラー応答
+			await interaction.editReply('ノートリストの取得に失敗しました。コンソールを確認してください。');
 		}
 	}
 }
@@ -461,7 +489,7 @@ class SettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Obsidianターゲットノートパス')
-			.setDesc('Discordメッセージを追記するObsidian Vault内のMarkdownファイルのパスです（例: `メモ/Discord受信トレイ.md`）。')
+			.setDesc('Discordメッセージを追記するObsidian Vault内のMarkdownファイルのパスです(例: `メモ/Discord受信トレイ`)')
 			.addText(text => text
 				.setPlaceholder('Discord_Messages.md')
 				.setValue(this.plugin.settings.targetNotePath)
@@ -471,4 +499,3 @@ class SettingTab extends PluginSettingTab {
 				}));
 	}
 }
-

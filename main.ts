@@ -1,5 +1,7 @@
 import { App, Notice, Plugin, PluginSettingTab, Setting, TFile } from 'obsidian';
-import { Client, Intents, TextChannel, DMChannel } from 'discord.js';
+import { Client, Intents, TextChannel, Interaction, CommandInteraction} from 'discord.js';
+import {EmbedBuilder} from "@discordjs/builders";
+
 
 interface PluginSettings {
 	botToken: string,
@@ -43,13 +45,16 @@ export default class MyPlugin extends Plugin {
 		this.addSettingTab(new SettingTab(this.app, this));
 
 		this.registerInterval(window.setInterval(() => {
-			// ボットが落ちてしまっていたら再起動を試みる
-			if (!this.discordClient || !this.discordClient.isReady()) {
+			if (this.settings.botToken && (!this.discordClient || !this.discordClient.isReady())) {
 				console.log('Discord client detected as disconnected or not ready. Attempting to re-initialize.');
 				new Notice('Discord client disconnected. Attempting to re-initialize...');
+				if (this.discordClient) {
+					this.discordClient.destroy();
+					this.discordClient = null;
+				}
 				this.initializeDiscordClient();
 			}
-		}, 5 * 60 * 1000)); // 5分ごとにチェック (5 * 60 * 1000 ミリ秒)
+		}, 5 * 60 * 1000));
 	}
 
 	onunload() {
@@ -86,6 +91,10 @@ export default class MyPlugin extends Plugin {
 	private async initializeDiscordClient() {
 		if (this.discordClient && this.discordClient.isReady()) {
 			console.log('Discord client already initialized and ready.');
+			if (this.settings.clientId && (!this.discordClient.application?.commands.cache.size || this.discordClient.application?.commands.cache.size < 3)) { // コマンド数が少ない場合も再登録
+				console.log('Registering slash commands as they might be missing or incomplete.');
+				this.registerSlashCommands();
+			}
 			return;
 		}
 
@@ -110,6 +119,12 @@ export default class MyPlugin extends Plugin {
 			new Notice(`Logged in as ${this.discordClient?.user?.tag}!`);
 			this.updateStatusBar(`Discord: Connected (${this.discordClient?.user?.tag})`);
 			this.setupDiscordListeners();
+			if (this.settings.clientId) {
+				this.registerSlashCommands();
+			} else {
+				new Notice('Client ID is not set. Slash commands will not be registered.');
+				console.warn('Client ID is not set. Skipping slash command registration on ready.');
+			}
 		});
 
 		this.discordClient.on('error', (error) => {
@@ -156,28 +171,99 @@ export default class MyPlugin extends Plugin {
 		this.discordClient.on('messageCreate', async message => {
 			if (message.author.bot) return;
 
-			let channelDisplayName = 'Direct Message'; // DMの場合のデフォルト名
-
+			let channelDisplayName = 'Direct Message';
 			if (message.channel instanceof TextChannel) {
 				channelDisplayName = message.channel.name;
 			}
+
 			if (this.settings.channelId && message.channel.id === this.settings.channelId) {
 				console.log(`Received message in target channel: ${message.content}`);
 				await this.saveMessageToObsidianNote(message.content, message.author.username, channelDisplayName);
 			}
-			if (this.settings.ownerId && message.author.id === this.settings.ownerId) {
-				if (message.content.startsWith('!setnote ')) {
-					const args = message.content.slice('!setnote '.length).trim();
-					const notePath = args.endsWith('.md') ? args : `${args}.md`; // .md拡張子を自動追加
-					await this.updateTargetNote(notePath, message);
-				} else if (message.content.startsWith('!createnote ')) {
-					const noteName = message.content.slice('!createnote '.length).trim();
-					await this.createNewNote(noteName, message);
-				} else if (message.content === '!listnotes') {
-					await this.listObsidianNotes(message);
-				}
+		});
+
+		this.discordClient.on('interactionCreate', async (interaction: Interaction) => {
+			if (!interaction.isCommand()) return;
+
+			if (this.settings.ownerId && interaction.user.id !== this.settings.ownerId) {
+				await interaction.reply({ content: 'You are not authorized to use this command.', ephemeral: true });
+				return;
+			}
+
+			const commandInteraction = interaction as CommandInteraction;
+
+			switch (commandInteraction.commandName) {
+				case 'setnote':
+					const pathOption = commandInteraction.options.getString('path', true);
+					await this.updateTargetNote(pathOption, commandInteraction);
+					break;
+				case 'createnote':
+					const nameOption = commandInteraction.options.getString('name', true);
+					await this.createNewNote(nameOption, commandInteraction);
+					break;
+				case 'listnotes':
+					await this.listObsidianNotes(commandInteraction);
+					break;
+				default:
+					await commandInteraction.reply({ content: 'Unknown command.', ephemeral: true });
+					break;
 			}
 		});
+	}
+
+	/**
+	 * Discordスラッシュコマンドを登録します。
+	 */
+	private async registerSlashCommands() {
+		if (!this.discordClient || !this.discordClient.application?.id) {
+			console.error('Discord client not ready or application ID not available for command registration.');
+			return;
+		}
+		if (!this.settings.clientId) {
+			new Notice('Client ID is not set. Cannot register slash commands.');
+			console.error('Client ID is missing, cannot register slash commands.');
+			return;
+		}
+
+		const commands = [
+			{
+				name: 'setnote',
+				description: 'Set the target Obsidian note path for Discord messages.',
+				options: [
+					{
+						name: 'path',
+						description: 'The full path to the Obsidian note (e.g., `Notes/Discord Inbox.md`).',
+						type: 3,
+						required: true,
+					},
+				],
+			},
+			{
+				name: 'createnote',
+				description: 'Create a new Obsidian note and set it as the target.',
+				options: [
+					{
+						name: 'name',
+						description: 'The name of the new Obsidian note (e.g., `Daily Discord Log`).',
+						type: 3,
+						required: true,
+					},
+				],
+			},
+			{
+				name: 'listnotes',
+				description: 'List all Markdown notes in your Obsidian vault.',
+			},
+		];
+
+		try {
+			await this.discordClient.application.commands.set(commands);
+			new Notice('Slash commands registered successfully!');
+			console.log('Slash commands registered:', commands);
+		} catch (error) {
+			console.error('Failed to register slash commands:', error);
+			new Notice(`Failed to register slash commands: ${error.message}`);
+		}
 	}
 
 	/**
@@ -199,7 +285,7 @@ export default class MyPlugin extends Plugin {
 			} catch (error) {
 				console.error(`Failed to create note ${targetFilePath}:`, error);
 				new Notice(`Error creating note ${targetFilePath}: ${error.message}`);
-				return; // ファイル作成失敗時は処理を中断
+				return;
 			}
 		}
 
@@ -217,93 +303,85 @@ export default class MyPlugin extends Plugin {
 	/**
 	 * Discordコマンドに応じてObsidianの保存先ノートパスを更新します。
 	 * @param newPath 新しいノートパス
-	 * @param message Discordメッセージオブジェクト（応答用）
+	 * @param interaction Discordメッセージオブジェクト（応答用）
 	 */
-	private async updateTargetNote(newPath: string, message: any) {
+	private async updateTargetNote(newPath: string, interaction: CommandInteraction) {
+		await interaction.deferReply({ ephemeral: true });
+
 		if (!newPath || newPath.length > 255) {
-			if (message.channel instanceof TextChannel || message.channel instanceof DMChannel) {
-				message.channel.send('Invalid note path provided. Please provide a valid path (e.g., `MyFolder/MyNote.md`).');
-			}
+			await interaction.editReply('Invalid note path provided. Please provide a valid path (e.g., `MyFolder/MyNote.md`).');
 			return;
 		}
 
 		this.settings.targetNotePath = newPath;
-		await this.plugin.saveSettings();
+		await this.saveSettings();
 
-		if (message.channel instanceof TextChannel || message.channel instanceof DMChannel) {
-			message.channel.send(`Saving new messages to \`${newPath}\`.`);
-		}
+		await interaction.editReply(`Obsidian target note path updated to: \`${newPath}\`.`);
+
 		new Notice(`Obsidian target note path updated to: ${newPath}`);
 		console.log(`Obsidian target note path updated to: ${newPath}`);
 	}
 
-	/**
-	 * Discordコマンドに応じてObsidianに新しいノートを作成します。
-	 * @param noteName 新しいノート名 (拡張子なしでも可)
-	 * @param message Discordメッセージオブジェクト（応答用）
-	 */
-	private async createNewNote(noteName: string, message: any) {
-		const sanitizedNoteName = noteName.replace(/[\\/:*?"<>|]/g, ''); // ファイル名として無効な文字をサニタイズ
+
+	private async createNewNote(noteName: string, interaction: CommandInteraction) {
+		await interaction.deferReply({ ephemeral: true });
+
+		const sanitizedNoteName = noteName.replace(/[\\/:*?"<>|]/g, '');
 		if (!sanitizedNoteName) {
-			if (message.channel instanceof TextChannel || message.channel instanceof DMChannel) {
-				message.channel.send('Invalid note name provided.');
-			}
+			await interaction.editReply('Invalid note name provided.');
 			return;
 		}
 		const newPath = `${sanitizedNoteName}.md`;
 
 		try {
-			// ノートが既に存在するか確認
 			if (this.app.vault.getAbstractFileByPath(newPath)) {
-				if (message.channel instanceof TextChannel || message.channel instanceof DMChannel) {
-					message.channel.send(`Note \`${newPath}\` already exists. Use \`!setnote\` to select it.`);
-				}
+				await interaction.editReply(`Note \`${newPath}\` already exists. Use \`/setnote\` to select it.`);
 				new Notice(`Note already exists: ${newPath}`);
 				return;
 			}
 
 			const file = await this.app.vault.create(newPath, '');
-			if (message.channel instanceof TextChannel || message.channel instanceof DMChannel) {
-				message.channel.send(`New note \`${newPath}\` created in Obsidian. Setting it as current target.`);
-			}
+			await interaction.editReply(`New note \`${newPath}\` created in Obsidian. Setting it as current target.`);
 			new Notice(`Created new note: ${newPath}`);
 			console.log(`Created new note: ${newPath}`);
 
-			await this.updateTargetNote(newPath, message);
-
+			await this.updateTargetNote(newPath, interaction);
 		} catch (error) {
 			console.error('Failed to create new note:', error);
-			if (message.channel instanceof TextChannel || message.channel instanceof DMChannel) {
-				message.channel.send(`Failed to create note \`${newPath}\`. Error: ${error.message}`);
-			}
+			await interaction.editReply(`Failed to create note \`${newPath}\`. Error: ${error.message}`);
 			new Notice(`Error creating note: ${error.message}`);
 		}
 	}
-
 	/**
 	 * Discordコマンドに応じてObsidian Vault内のノートリストをDiscordに送信します。
-	 * @param message Discordメッセージオブジェクト（応答用）
+	 * @param interaction Discordコマンドインタラクションオブジェクト（応答用）
 	 */
-	private async listObsidianNotes(message: any) {
-		if (!(message.channel instanceof TextChannel || message.channel instanceof DMChannel)) return;
+	private async listObsidianNotes(interaction: CommandInteraction) {
+		await interaction.deferReply({ ephemeral: true });
 
 		const files = this.app.vault.getMarkdownFiles();
 		let fileList = files.map(file => `- ${file.path}`).join('\n');
 
 		if (fileList.length === 0) {
 			fileList = "No Markdown notes found in your Vault.";
-		} else if (fileList.length > 1900) {
-			fileList = fileList.substring(0, 1900) + '\n... (truncated)';
+		} else if (fileList.length > 1800) {
+			fileList = fileList.substring(0, 1800) + '\n... (truncated)';
 		}
 
 		try {
-			await message.channel.send(`**Obsidian Notes in Vault:**\n\`\`\`\n${fileList}\n\`\`\`\nCurrently saving to: \`${this.settings.targetNotePath}\``);
+			const embed = new EmbedBuilder()
+				.setColor(0x0099FF)
+				.setTitle('Obsidian Notes in Vault')
+				.setDescription(`\`\`\`\n${fileList}\n\`\`\`\n\n**Currently saving to:** \`${this.settings.targetNotePath}\``);
+
+			await interaction.editReply({ embeds: [embed] }); // 最終応答
 		} catch (error) {
 			console.error('Failed to send note list to Discord:', error);
-			message.channel.send('Failed to retrieve note list. Check console for errors.');
+			await interaction.editReply('Failed to retrieve note list. Check console for errors.'); // エラー応答
 		}
 	}
 }
+
 
 class SettingTab extends PluginSettingTab {
 	plugin: MyPlugin;
@@ -355,7 +433,7 @@ class SettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Owner User ID')
-			.setDesc('Your Discord user ID. Commands like `!setnote` and `!createnote` will only be processed from this user.')
+			.setDesc('Your Discord user ID.')
 			.addText(text => text
 				.setPlaceholder('Enter your Discord user ID')
 				.setValue(this.plugin.settings.ownerId)

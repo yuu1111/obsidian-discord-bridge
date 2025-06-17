@@ -43,16 +43,21 @@ export default class MyPlugin extends Plugin {
 		this.addSettingTab(new SettingTab(this.app, this));
 
 		this.registerInterval(window.setInterval(() => {
-			if (this.settings.botToken && (!this.discordClient || !this.discordClient.isReady())) {
-				console.log('Discordクライアントが切断または準備未完了を検知。再初期化を試行中。');
+			if (this.settings.botToken &&
+				(!this.discordClient ||
+					(this.discordClient && this.discordClient.status === 5)) // Status 5 is DISCONNECTED in Discord.js v13
+			) {
+				console.log('Discordクライアントが完全に切断された状態を検知。再初期化を試行中。');
 				new Notice('Discordクライアントが切断されました。再初期化を試行中...');
 				if (this.discordClient) {
 					this.discordClient.destroy();
 					this.discordClient = null;
 				}
 				this.initializeDiscordClient();
+			} else if (this.discordClient && this.discordClient.status === 4) {
+				console.log('Discordクライアントは現在再接続中です。手動での再初期化はスキップします。');
 			}
-		}, 5 * 60 * 1000)); // 5分ごとにチェック (5 * 60 * 1000 ミリ秒)
+		}, 5 * 60 * 1000));
 	}
 
 	onunload() {

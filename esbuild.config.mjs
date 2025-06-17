@@ -11,12 +11,56 @@ if you want to view the source, please visit the github repository of this plugi
 
 const prod = (process.argv[2] === "production");
 
+// node: プレフィックス付きの組み込みモジュールを明示的にリストアップ
+// 'undici' が依存する可能性のあるものに絞るか、より包括的に追加します。
+// エラーメッセージに出ていたものを中心に追加します。
+const nodeBuiltinModules = [
+	// 以前のエラーメッセージから確認されたもの
+	"node:querystring",
+	"node:events",
+	"node:assert",
+	"node:buffer",
+	// 他にundiciが使う可能性のあるもの、または一般的なもの
+	"node:util",
+	"node:stream",
+	"node:fs",
+	"node:path",
+	"node:crypto",
+	"node:os",
+	"node:net",
+	"node:tls",
+	"node:http",
+	"node:https",
+	"node:url",
+	"node:zlib",
+	"node:child_process",
+	"node:cluster",
+	"node:console",
+	"node:constants",
+	"node:dgram",
+	"node:dns",
+	"node:domain",
+	"node:module",
+	"node:readline",
+	"node:repl",
+	"node:string_decoder",
+	"node:sys",
+	"node:timers",
+	"node:vm",
+	"node:async_hooks",
+	"node:worker_threads",
+	"node:process",
+	"node:diagnostics_channel",
+	"node:perf_hooks",
+];
+
 const context = await esbuild.context({
 	banner: {
 		js: banner,
 	},
 	entryPoints: ["main.ts"],
 	bundle: true,
+	platform: "node",
 	external: [
 		"obsidian",
 		"electron",
@@ -31,9 +75,10 @@ const context = await esbuild.context({
 		"@lezer/common",
 		"@lezer/highlight",
 		"@lezer/lr",
-		...builtins],
+		...builtins,
+		...nodeBuiltinModules],
 	format: "cjs",
-	target: "es2018",
+	target: "es2022",
 	logLevel: "info",
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,

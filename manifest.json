@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "obsidian-discord-bridge-plugin",
+	"name": "Discord Bridge",
 	"version": "1.0.0",
-	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"minAppVersion": "0.18.10",
+	"description": "hogehoge",
+	"author": "yuu1111",
+	"authorUrl": "hogehoge",
+	"fundingUrl": "hogehoge",
 	"isDesktopOnly": false
 }

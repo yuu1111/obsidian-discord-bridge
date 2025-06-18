@@ -1,7 +1,5 @@
 import {AbstractInputSuggest, App, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder} from 'obsidian';
 import { Client, Intents, TextChannel, Interaction, CommandInteraction, Constants } from 'discord.js';
-import {text} from "node:stream/consumers";
-
 
 interface PluginSettings {
 	botToken: string,
@@ -183,46 +181,79 @@ export default class MyPlugin extends Plugin {
 		});
 
 		this.discordClient.on('interactionCreate', async (interaction: Interaction) => {
-			if (!interaction.isCommand()) return;
+			// --- スラッシュコマンドの処理（既存） ---
+			if (interaction.isCommand()) {
+				if (this.settings.ownerId && interaction.user.id !== this.settings.ownerId) {
+					await interaction.reply({content: 'このコマンドを使用する権限がありません', ephemeral: true});
+					return;
+				}
 
-			if (this.settings.ownerId && interaction.user.id !== this.settings.ownerId) {
-				await interaction.reply({content: 'このコマンドを使用する権限がありません', ephemeral: true});
-				return;
+				const commandInteraction = interaction as CommandInteraction;
+
+				switch (commandInteraction.commandName) {
+					case 'setnote': {
+						const pathOption = commandInteraction.options.getString('path', true);
+						await commandInteraction.deferReply();
+						await this.updateTargetNote(pathOption, commandInteraction);
+						break;
+					}
+					case 'createnote': {
+						const nameOption = commandInteraction.options.getString('name', true);
+						await this.createNewNote(nameOption, commandInteraction);
+						break;
+					}
+					case 'listnotes': {
+						await this.listObsidianNotes(commandInteraction);
+						break;
+					}
+					case 'setchannel': {
+						const channelOption = commandInteraction.options.getChannel('channel', true);
+						await commandInteraction.deferReply();
+						await this.updateTargetChannel(channelOption.id, commandInteraction);
+						break;
+					}
+					case 'outputnote': {
+						const notePathOption = commandInteraction.options.getString('note_path', true);
+						await commandInteraction.deferReply();
+						await this.outputObsidianNote(notePathOption, commandInteraction);
+						break;
+					}
+					default: {
+						await commandInteraction.reply({content: '不明なコマンドです', ephemeral: true});
+						break;
+					}
+				}
 			}
+			else if (interaction.isAutocomplete()) {
+				const focusedOption = interaction.options.getFocused(true);
+				const userQuery = focusedOption.value.toLowerCase();
+				const commandName = interaction.commandName;
 
-			const commandInteraction = interaction as CommandInteraction;
+				let suggestions: { name: string; value: string }[] = [];
 
-			switch (commandInteraction.commandName) {
-				case 'setnote': {
-					const pathOption = commandInteraction.options.getString('path', true);
-					await commandInteraction.deferReply();
-					await this.updateTargetNote(pathOption, commandInteraction);
-					break;
+				if ((commandName === 'setnote' && focusedOption.name === 'path') ||
+					(commandName === 'outputnote' && focusedOption.name === 'note_path')) {
+
+					const allMarkdownFiles = this.app.vault.getMarkdownFiles()
+					const filteredFiles = allMarkdownFiles.filter(file => {
+						const pathWithoutExtension = file.path.slice(0, -3).toLowerCase();
+						return pathWithoutExtension.includes(userQuery);
+					});
+
+					suggestions = filteredFiles.slice(0, 25)
+						.map(file => {
+							const pathWithoutExtension = file.path.slice(0, -3);
+							return {
+								name: pathWithoutExtension,
+								value: pathWithoutExtension
+							};
+						});
 				}
-				case 'createnote': {
-					const nameOption = commandInteraction.options.getString('name', true);
-					await this.createNewNote(nameOption, commandInteraction);
-					break;
-			}
-				case 'listnotes': {
-					await this.listObsidianNotes(commandInteraction);
-					break;
-				}
-				case 'setchannel': {
-					const channelOption = commandInteraction.options.getChannel('channel', true);
-					await commandInteraction.deferReply();
-					await this.updateTargetChannel(channelOption.id, commandInteraction);
-					break;
-				}
-				case 'outputnote': {
-					const notePathOption = commandInteraction.options.getString('note_path', true);
-					await commandInteraction.deferReply();
-					await this.outputObsidianNote(notePathOption, commandInteraction);
-					break;
-				}
-				default: {
-					await commandInteraction.reply({content: '不明なコマンドです', ephemeral: true});
-					break;
+
+				try {
+					await interaction.respond(suggestions);
+				} catch (error) {
+					console.error('オートコンプリートの応答に失敗しました:', error);
 				}
 			}
 		});
@@ -252,6 +283,7 @@ export default class MyPlugin extends Plugin {
 						description: 'Obsidianノートのフルパス(例: `Notes/Discord Inbox.md`)',
 						type: 3,
 						required: true,
+						autocomplete: true,
 					},
 				],
 			},
@@ -292,6 +324,7 @@ export default class MyPlugin extends Plugin {
 						description: '出力したいObsidianノートのパス(例: `My Folder/My Note`)',
 						type: 3,
 						required: true,
+						autocomplete: true,
 					},
 				],
 			},

@@ -24,10 +24,11 @@ export default class MyPlugin extends Plugin {
 	private statusBarItem: HTMLElement;
 
 	async onload() {
+
 		await this.loadSettings();
+		await this.initializeDiscordClient();
 
-		this.initializeDiscordClient();
-
+		// 左のリボンボタン
 		const ribbonIconEl = this.addRibbonIcon('refresh-ccw', 'Discord接続を更新', async () => {
 			new Notice('Discordクライアントの再初期化を試行中...');
 			if (this.discordClient) {
@@ -38,15 +39,17 @@ export default class MyPlugin extends Plugin {
 		});
 		ribbonIconEl.addClass('my-plugin-ribbon-class');
 
+		// これはどこで出るんだ
 		this.statusBarItem = this.addStatusBarItem();
 		this.updateStatusBar('Discord: 未接続');
 
+		// 設定を追加
 		this.addSettingTab(new SettingTab(this.app, this));
 
+		// 定期的にDiscordのBotが起動できているかチェック
+		// 分 * 秒 * ミリ秒
 		this.registerInterval(window.setInterval(() => {
-			if (this.settings.botToken &&
-				(!this.discordClient ||
-					(this.discordClient && this.discordClient.status === Constants.Status.DISCONNECTED))
+			if (this.settings.botToken && (!this.discordClient || (this.discordClient && this.discordClient.ws.status === Constants.Status.DISCONNECTED))
 			) {
 				console.log('Discordクライアントが完全に切断された状態を検知 再初期化を試行中');
 				new Notice('Discordクライアントが切断されました 再初期化を試行中...');
@@ -55,7 +58,7 @@ export default class MyPlugin extends Plugin {
 					this.discordClient = null;
 				}
 				this.initializeDiscordClient();
-			} else if (this.discordClient && this.discordClient.status === Constants.Status.RECONNECTING) {
+			} else if (this.discordClient && this.discordClient.ws.status === Constants.Status.RECONNECTING) {
 				console.log('Discordクライアントは現在再接続中です 手動での再初期化はスキップします');
 			}
 		}, 5 * 60 * 1000)); // 5分ごとにチェック
@@ -148,8 +151,8 @@ export default class MyPlugin extends Plugin {
 		try {
 			await this.discordClient.login(this.settings.botToken);
 		} catch (error) {
+			if (!(error instanceof Error)) return
 			console.error('Discordへのログインに失敗しました:', error);
-			// @ts-ignore
 			new Notice(`Discordへのログインに失敗しました: ${error.message}`);
 			this.updateStatusBar('Discord: ログイン失敗');
 		}
@@ -172,14 +175,9 @@ export default class MyPlugin extends Plugin {
 		this.discordClient.on('messageCreate', async message => {
 			if (message.author.bot) return;
 
-			let channelDisplayName = 'ダイレクトメッセージ';
-			if (message.channel instanceof TextChannel) {
-				channelDisplayName = message.channel.name;
-			}
-
 			if (this.settings.channelId && message.channel.id === this.settings.channelId) {
 				console.log(`ターゲットチャンネルでメッセージを受信しました: ${message.content}`);
-				await this.saveMessageToObsidianNote(message.content, message.author.username, channelDisplayName);
+				await this.saveMessageToObsidianNote(message.content);
 			}
 		});
 
@@ -194,35 +192,37 @@ export default class MyPlugin extends Plugin {
 			const commandInteraction = interaction as CommandInteraction;
 
 			switch (commandInteraction.commandName) {
-				case 'setnote':
-					// eslint-disable-next-line no-case-declarations
+				case 'setnote': {
 					const pathOption = commandInteraction.options.getString('path', true);
 					await commandInteraction.deferReply();
 					await this.updateTargetNote(pathOption, commandInteraction);
 					break;
-				case 'createnote':
-					// eslint-disable-next-line no-case-declarations
+				}
+				case 'createnote': {
 					const nameOption = commandInteraction.options.getString('name', true);
 					await this.createNewNote(nameOption, commandInteraction);
 					break;
-				case 'listnotes':
+			}
+				case 'listnotes': {
 					await this.listObsidianNotes(commandInteraction);
 					break;
-				case 'setchannel':
-					// eslint-disable-next-line no-case-declarations
+				}
+				case 'setchannel': {
 					const channelOption = commandInteraction.options.getChannel('channel', true);
 					await commandInteraction.deferReply();
 					await this.updateTargetChannel(channelOption.id, commandInteraction);
 					break;
-				case 'outputnote':
-					// eslint-disable-next-line no-case-declarations
+				}
+				case 'outputnote': {
 					const notePathOption = commandInteraction.options.getString('note_path', true);
 					await commandInteraction.deferReply();
 					await this.outputObsidianNote(notePathOption, commandInteraction);
 					break;
-				default:
+				}
+				default: {
 					await commandInteraction.reply({content: '不明なコマンドです', ephemeral: true});
 					break;
+				}
 			}
 		});
 	}
@@ -277,7 +277,7 @@ export default class MyPlugin extends Plugin {
 					{
 						name: 'channel',
 						description: 'メッセージを監視するチャンネル',
-						type: 7, // CHANNEL type
+						type: 7,
 						required: true,
 					},
 				],
@@ -301,8 +301,8 @@ export default class MyPlugin extends Plugin {
 			new Notice('スラッシュコマンドが正常に登録されました！');
 			console.log('スラッシュコマンドが登録されました:', commands);
 		} catch (error) {
+			if (!(error instanceof Error)) return
 			console.error('スラッシュコマンドの登録に失敗しました:', error);
-			// @ts-ignore
 			new Notice(`スラッシュコマンドの登録に失敗しました: ${error.message}`);
 		}
 	}
@@ -322,12 +322,11 @@ export default class MyPlugin extends Plugin {
 	/**
 	 * DiscordメッセージをObsidianノートに保存する
 	 * @param content メッセージの内容
-	 * @param author メッセージの送信者名
-	 * @param channelName メッセージが送信されたチャンネル名
 	 */
-	private async saveMessageToObsidianNote(content: string, author: string, channelName: string) {
-		const targetFilePath = this.ensureMarkdownExtension(this.settings.targetNotePath);
+	private async saveMessageToObsidianNote(content: string) {
 
+		// 設定から.md抜きの相対ファイルパスを取得し、.mdを付与する
+		const targetFilePath = this.ensureMarkdownExtension(this.settings.targetNotePath);
 		let file = this.app.vault.getAbstractFileByPath(targetFilePath);
 
 		if (!file || !(file instanceof TFile)) {
@@ -336,16 +335,15 @@ export default class MyPlugin extends Plugin {
 				new Notice(`Discordメッセージ用の新しいノートを作成しました: ${targetFilePath}`);
 				console.log(`新しいノートを作成しました: ${targetFilePath}`);
 			} catch (error) {
+				if (!(error instanceof Error)) return
 				console.error(`ノート ${targetFilePath} の作成に失敗しました:`, error);
-				// @ts-ignore
 				new Notice(`エラー: ノート ${targetFilePath} の作成に失敗しました: ${error.message}`);
 				return;
 			}
 		}
 
 		if (file instanceof TFile) {
-			const timestamp = new Date().toLocaleString();
-			const messageToSave = `\n---\n**[${timestamp}] ${author} in #${channelName}:**\n${content}\n`;
+			const messageToSave = `${content}\n`;
 			await this.app.vault.append(file, messageToSave);
 			console.log(`メッセージを ${targetFilePath} に保存しました`);
 		} else {
@@ -361,10 +359,12 @@ export default class MyPlugin extends Plugin {
 	 */
 	private async updateTargetNote(newPath: string, interaction: CommandInteraction) {
 
+		// .md無しのファイルを入れる
 		const finalPath = this.ensureMarkdownExtension(newPath);
 
+		// TODO : 必ず.md抜きで指定されるようにする
 		if (!finalPath || finalPath.length > 255) {
-			await interaction.editReply('無効なノートパスが指定されました 有効なパスを指定してください(例: `フォルダ名/ノート名.md`)');
+			await interaction.editReply('無効なノートパスが指定されました 有効なパスを指定してください(例: `フォルダ名/ノート名`)');
 			return;
 		}
 
@@ -389,6 +389,7 @@ export default class MyPlugin extends Plugin {
 		const INVALID_FILENAME_CHARS_EXCEPT_SLASH_AND_BACKSLASH_REGEX = /[<>:"|?*]/g;
 		const sanitizedNoteName = noteName.replace(INVALID_FILENAME_CHARS_EXCEPT_SLASH_AND_BACKSLASH_REGEX, '');
 
+		// TODO : 必ず.md抜きで指定されるようにする
 		if (!sanitizedNoteName) {
 			await interaction.editReply('無効なノート名が指定されました');
 			return;
@@ -415,10 +416,9 @@ export default class MyPlugin extends Plugin {
 					new Notice(`フォルダを作成しました: ${folderPath}`);
 					console.log(`フォルダを作成しました: ${folderPath}`);
 				} catch (folderError) {
+					if (!(folderError instanceof Error)) return
 					console.error(`フォルダ ${folderPath} の作成に失敗しました:`, folderError);
-					// @ts-ignore
 					await interaction.editReply(`フォルダ \`${folderPath}\` の作成に失敗しましたエラー: ${folderError.message}`);
-					// @ts-ignore
 					new Notice(`エラー: フォルダの作成に失敗しました: ${folderError.message}`);
 					return;
 				}
@@ -429,22 +429,19 @@ export default class MyPlugin extends Plugin {
 
 		try {
 			if (this.app.vault.getAbstractFileByPath(fullPath)) {
-				// @ts-ignore
-				await interaction.editReply(`ノート \`${fullPath}\` は既に存在します` / setnote` コマンドで選択してください`);
+				await interaction.editReply(`ノート \`${fullPath}\` は既に存在します /setnote コマンドで選択してください`);
 				new Notice(`ノートは既に存在します: ${fullPath}`);
 				return;
 			}
 
-			const file = await this.app.vault.create(fullPath, '');
 			await interaction.editReply(`新しいノート \`${fullPath}\` をObsidianに作成しました`);
 			new Notice(`新しいノートを作成しました: ${fullPath}`);
 			console.log(`新しいノートを作成しました: ${fullPath}`);
 
 		} catch (error) {
+			if (!(error instanceof Error)) return
 			console.error('新しいノートの作成に失敗しました:', error);
-			// @ts-ignore
 			await interaction.editReply(`ノート \`${fullPath}\` の作成に失敗しました エラー: ${error.message}`);
-			// @ts-ignore
 			new Notice(`エラー: ノートの作成に失敗しました: ${error.message}`);
 		}
 	}
@@ -454,16 +451,18 @@ export default class MyPlugin extends Plugin {
 	 * @param interaction Discordコマンドインタラクションオブジェクト(応答用)
 	 */
 	private async listObsidianNotes(interaction: CommandInteraction) {
-		await interaction.deferReply(); // 全員に見える「考え中...」応答
+
+		await interaction.deferReply();
 
 		const files = this.app.vault.getMarkdownFiles();
-		let fileListContent = files.map(file => `- ${file.path}`).join('\n');
-		
+		const fileListContent = files.map(file => `- ${file.path}`).join('\n');
+
+		// TODO : 多分これ上の方で定義してグローバル変数にした方がいい
 		const DISCORD_MAX_MESSAGE_LENGTH = 1990;
-		
+
 		const messageChunks: string[] = [];
 		let currentChunk = `**Obsidian Vault内のノート:**\n\`\`\`\n`;
-		
+
 		if (fileListContent.length === 0) {
 			currentChunk += "Vault内にMarkdownノートは見つかりませんでした\n";
 		} else {
@@ -480,7 +479,7 @@ export default class MyPlugin extends Plugin {
 		if (currentChunk.length > 0) {
 			messageChunks.push(currentChunk + '```');
 		}
-		
+
 		const currentTargetPathMessage = `\n**現在保存しているノート:** \`${this.ensureMarkdownExtension(this.settings.targetNotePath)}\``;
 		const lastChunkIndex = messageChunks.length - 1;
 
@@ -539,7 +538,7 @@ export default class MyPlugin extends Plugin {
 	 * @param interaction Discordコマンドインタラクションオブジェクト(応答用)
 	 */
 	private async outputObsidianNote(notePath: string, interaction: CommandInteraction) {
-		const fullPath = notePath;
+		const fullPath = this.ensureMarkdownExtension(notePath);
 
 		if (!fullPath || fullPath.length > 255) {
 			await interaction.editReply('無効なノートパスが指定されました 有効なパスを指定してください(例: `My Folder/My Note`)');
@@ -597,6 +596,7 @@ export default class MyPlugin extends Plugin {
 			}
 
 		} catch (error) {
+			if (!(error instanceof Error)) return
 			console.error(`ノート ${fullPath} の読み込みまたは出力に失敗しました:`, error);
 			await interaction.editReply(`ノート \`${fullPath}\` の読み込みに失敗しました エラー: ${error.message}`);
 			new Notice(`エラー: ノート ${fullPath} の読み込みまたは出力に失敗しました: ${error.message}`);
@@ -622,7 +622,7 @@ class SettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('ボットトークン')
-			.setDesc('このトークンはBase64形式で保存されるが、セキュリティ目的では無い')
+			.setDesc('BotのTokenを入れる')
 			.addText(text => text
 				.setPlaceholder('Discordボットのトークンを入力')
 				.setValue(this.plugin.settings.botToken)
@@ -633,7 +633,7 @@ class SettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('クライアントID')
-			.setDesc('このIDはBase64形式で保存されるが、セキュリティ目的では無い')
+			.setDesc('BotのClientIDを入れる')
 			.addText(text => text
 				.setPlaceholder('DiscordボットのクライアントIDを入力')
 				.setValue(this.plugin.settings.clientId)
@@ -644,7 +644,7 @@ class SettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('ターゲットチャンネルID')
-			.setDesc('DiscordメッセージをObsidianに保存するために監視するDiscordチャンネルのIDを指定する')
+			.setDesc('Botで監視するDiscordチャンネルのIDを指定する')
 			.addText(text => text
 				.setPlaceholder('DiscordチャンネルIDを入力')
 				.setValue(this.plugin.settings.channelId)
@@ -655,7 +655,7 @@ class SettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('オーナーユーザーID')
-			.setDesc('あなたのDiscordユーザーIDですを指定する `/setnote` や `/createnote` などのコマンドは、このユーザーからのみ処理される')
+			.setDesc('あなたのDiscordユーザーIDを指定するコマンドは、このユーザーのみに実行が許可される')
 			.addText(text => text
 				.setPlaceholder('あなたのDiscordユーザーIDを入力')
 				.setValue(this.plugin.settings.ownerId)
@@ -666,7 +666,7 @@ class SettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Obsidianターゲットノートパス')
-			.setDesc('Discordメッセージを追記するObsidian Vault内のMarkdownファイルのパスを指定する(例: `メモ/Discord受信トレイ`)')
+			.setDesc('Discordメッセージを追記するObsidian Vault内のMarkdownファイルのパスを指定する(例: `メモ/Discord受信トレイ`) NOTE: .mdは含めないこと')
 			.addText(text => text
 				.setPlaceholder('Discord_Messages')
 				.setValue(this.plugin.settings.targetNotePath)

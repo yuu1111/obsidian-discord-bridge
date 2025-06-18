@@ -1,5 +1,6 @@
-import { App, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder } from 'obsidian';
+import {AbstractInputSuggest, App, Notice, Plugin, PluginSettingTab, Setting, TFile, TFolder} from 'obsidian';
 import { Client, Intents, TextChannel, Interaction, CommandInteraction, Constants } from 'discord.js';
+import {text} from "node:stream/consumers";
 
 
 interface PluginSettings {
@@ -667,12 +668,41 @@ class SettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Obsidianターゲットノートパス')
 			.setDesc('Discordメッセージを追記するObsidian Vault内のMarkdownファイルのパスを指定する(例: `メモ/Discord受信トレイ`) NOTE: .mdは含めないこと')
-			.addText(text => text
-				.setPlaceholder('Discord_Messages')
-				.setValue(this.plugin.settings.targetNotePath)
-				.onChange(async (value) => {
-					this.plugin.settings.targetNotePath = value;
-					await this.plugin.saveSettings();
-				}));
+			.addText(text => {
+				text.setPlaceholder('Discord_Messages')
+					.setValue(this.plugin.settings.targetNotePath)
+					.onChange(async (value) => {
+						this.plugin.settings.targetNotePath = value;
+						await this.plugin.saveSettings();
+					});
+				new NotePathSuggest(this.app, text.inputEl);
+			});
+	}
+}
+
+class NotePathSuggest extends AbstractInputSuggest<TFile> {
+	constructor(app: App, private inputEl: HTMLInputElement) {
+		super(app, inputEl);
+	}
+
+	getSuggestions(inputStr: string): TFile[] {
+		const files = this.app.vault.getMarkdownFiles();
+		const lowerCaseInputStr = inputStr.toLowerCase();
+
+		return files.filter(file => {
+			const pathWithoutExtension = file.path.slice(0, -3);
+			return file.path.toLowerCase().includes(lowerCaseInputStr) ||
+				pathWithoutExtension.toLowerCase().includes(lowerCaseInputStr);
+		});
+	}
+
+	renderSuggestion(file: TFile, el: HTMLElement): void {
+		el.setText(file.path.slice(0, -3));
+	}
+
+	selectSuggestion(file: TFile, evt: MouseEvent | KeyboardEvent): void {
+		this.inputEl.value = file.path.slice(0, -3);
+		this.inputEl.trigger('input');
+		this.close();
 	}
 }

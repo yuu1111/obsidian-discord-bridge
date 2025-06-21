@@ -24,6 +24,8 @@ const COMMAND_LIST_NOTE = "listnote"
 const COMMAND_SET_CHANNEL = "setchannel"
 const COMMAND_OUT_PUT_NOTE = "outputnote"
 
+// TODO : jsonから各言語ごとのデータを読み込んで翻訳できるようにする
+
 // ログ系
 const LOG_DISCORD_CLIENT_RE_INIT = "Discordクライアントの再初期化を試行中..."
 const LOG_DISCORD_CLIENT_ERROR = "Discordクライアントエラー:"

@@ -397,17 +397,17 @@ export default class MyPlugin extends Plugin {
 
 		// TODO : 必ず.md抜きで指定されるようにする
 		if (!finalPath || finalPath.length > 255) {
-			await interaction.editReply('無効なノートパスが指定されました 有効なパスを指定してください(例: `フォルダ名/ノート名`)');
+			await interaction.editReply('無効なノートパスが指定されました 有効なパスを指定してください 例: Folder/Note');
 			return;
 		}
 
 		this.settings.targetNotePath = newPath;
 		await this.saveSettings();
 
-		await interaction.editReply(`Obsidianのターゲットノートパスを \`${finalPath}\` に更新しました`);
+		await interaction.editReply(`ターゲットノートパスを \`${finalPath}\` に更新しました`);
 
-		new Notice(`Obsidianのターゲットノートパスを更新しました: ${finalPath}`);
-		console.log(`Obsidianのターゲットノートパスを更新しました: ${finalPath}`);
+		new Notice(`ターゲットノートパスを更新しました: ${finalPath}`);
+		console.log(`ターゲットノートパスを更新しました: ${finalPath}`);
 	}
 
 
@@ -467,7 +467,7 @@ export default class MyPlugin extends Plugin {
 				return;
 			}
 
-			await interaction.editReply(`新しいノート \`${fullPath}\` をObsidianに作成しました`);
+			await interaction.editReply(`新しいノート \`${fullPath}\` を作成しました`);
 			new Notice(`新しいノートを作成しました: ${fullPath}`);
 			console.log(`新しいノートを作成しました: ${fullPath}`);
 
@@ -494,7 +494,7 @@ export default class MyPlugin extends Plugin {
 		const DISCORD_MAX_MESSAGE_LENGTH = 1990;
 
 		const messageChunks: string[] = [];
-		let currentChunk = `**Obsidian Vault内のノート:**\n\`\`\`\n`;
+		let currentChunk = `**Vault内のノート:**\n\`\`\`\n`;
 
 		if (fileListContent.length === 0) {
 			currentChunk += "Vault内にMarkdownノートは見つかりませんでした\n";
@@ -699,9 +699,9 @@ class SettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('ノートパス')
-			.setDesc('Discordメッセージを追記するObsidian Vault内のMarkdownファイルのパスを指定する .mdは含めないこと')
+			.setDesc('Discordメッセージを追記するVault内のノートのパスを指定する .mdは含めないこと')
 			.addText(text => {
-				text.setPlaceholder('メモ/Discord')
+				text.setPlaceholder('Folder/Discord')
 					.setValue(this.plugin.settings.targetNotePath)
 					.onChange(async (value) => {
 						this.plugin.settings.targetNotePath = value;

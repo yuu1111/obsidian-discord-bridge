@@ -181,7 +181,6 @@ export default class MyPlugin extends Plugin {
 		});
 
 		this.discordClient.on('interactionCreate', async (interaction: Interaction) => {
-			// --- スラッシュコマンドの処理（既存） ---
 			if (interaction.isCommand()) {
 				if (this.settings.ownerId && interaction.user.id !== this.settings.ownerId) {
 					await interaction.reply({content: 'このコマンドを使用する権限がありません', ephemeral: true});
@@ -276,11 +275,11 @@ export default class MyPlugin extends Plugin {
 		const commands = [
 			{
 				name: 'setnote',
-				description: 'Discordメッセージを保存するObsidianノートのパスを設定します',
+				description: 'Discordメッセージを保存するノートのパスを設定します',
 				options: [
 					{
 						name: 'path',
-						description: 'Obsidianノートのフルパス(例: `Notes/Discord Inbox.md`)',
+						description: 'ノートのフルパス 例: Notes/Discord',
 						type: 3,
 						required: true,
 						autocomplete: true,
@@ -289,11 +288,11 @@ export default class MyPlugin extends Plugin {
 			},
 			{
 				name: 'createnote',
-				description: '新しいObsidianノートを作成します フォルダ階層を含めることも可能です',
+				description: '指定した場所にノートを作成します',
 				options: [
 					{
 						name: 'name',
-						description: '新しいObsidianノートのパスと名前(例: `フォルダ名/新しいノート`)',
+						description: '新しいノートのパスと名前 例: Folder/NewNote',
 						type: 3,
 						required: true,
 					},
@@ -301,11 +300,11 @@ export default class MyPlugin extends Plugin {
 			},
 			{
 				name: 'listnotes',
-				description: 'Obsidian Vault内のすべてのMarkdownノートをリスト表示します',
+				description: 'Vault内のすべてのノートをリスト表示します',
 			},
 			{
 				name: 'setchannel',
-				description: 'DiscordメッセージをObsidianに保存するターゲットチャンネルを設定します',
+				description: 'Discordメッセージをノートに保存するターゲットチャンネルを設定します',
 				options: [
 					{
 						name: 'channel',
@@ -317,11 +316,11 @@ export default class MyPlugin extends Plugin {
 			},
 			{
 				name: 'outputnote',
-				description: '指定したObsidianノートの内容をDiscordに出力します',
+				description: '指定したノートの内容をDiscordに出力します',
 				options: [
 					{
 						name: 'note_path',
-						description: '出力したいObsidianノートのパス(例: `My Folder/My Note`)',
+						description: '出力したいノートのパス 例: Folder/Discord',
 						type: 3,
 						required: true,
 						autocomplete: true,
@@ -680,7 +679,7 @@ class SettingTab extends PluginSettingTab {
 			.setName('ターゲットチャンネルID')
 			.setDesc('Botで監視するDiscordチャンネルのIDを指定する')
 			.addText(text => text
-				.setPlaceholder('DiscordチャンネルIDを入力')
+				.setPlaceholder('DiscordチャンネルのIDを入力')
 				.setValue(this.plugin.settings.channelId)
 				.onChange(async (value) => {
 					this.plugin.settings.channelId = value;
@@ -689,7 +688,7 @@ class SettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('オーナーユーザーID')
-			.setDesc('あなたのDiscordユーザーIDを指定するコマンドは、このユーザーのみに実行が許可される')
+			.setDesc('あなたのDiscordユーザーIDを指定する コマンドはこのユーザーのみに実行が許可される')
 			.addText(text => text
 				.setPlaceholder('あなたのDiscordユーザーIDを入力')
 				.setValue(this.plugin.settings.ownerId)
@@ -699,10 +698,10 @@ class SettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Obsidianターゲットノートパス')
-			.setDesc('Discordメッセージを追記するObsidian Vault内のMarkdownファイルのパスを指定する(例: `メモ/Discord受信トレイ`) NOTE: .mdは含めないこと')
+			.setName('ノートパス')
+			.setDesc('Discordメッセージを追記するObsidian Vault内のMarkdownファイルのパスを指定する .mdは含めないこと')
 			.addText(text => {
-				text.setPlaceholder('Discord_Messages')
+				text.setPlaceholder('メモ/Discord')
 					.setValue(this.plugin.settings.targetNotePath)
 					.onChange(async (value) => {
 						this.plugin.settings.targetNotePath = value;

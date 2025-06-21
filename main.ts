@@ -24,6 +24,26 @@ const COMMAND_LIST_NOTE = "listnote"
 const COMMAND_SET_CHANNEL = "setchannel"
 const COMMAND_OUT_PUT_NOTE = "outputnote"
 
+// ログ系
+const LOG_DISCORD_CLIENT_RE_INIT = "Discordクライアントの再初期化を試行中..."
+const LOG_DISCORD_CLIENT_ERROR = "Discordクライアントエラー:"
+const LOG_DISCORD_CLIENT_DISCONNECT = "Discordクライアントが切断されました:"
+const LOG_DISCORD_CLIENT_RECONNECT= "Discordクライアントが再接続中..."
+const LOG_DISCORD_CLIENT_LOGIN_FAILED = "Discordへのログインに失敗しました:"
+
+// ステータスメッセージ
+const STATUS_DISCORD_ERROR = "Discord: エラー"
+const STATUS_DISCORD_DISCONNECT = "Discord: 未接続"
+const STATUS_DISCORD_RECONNECT = "Discord: 再接続中..."
+const STATUS_DISCORD_LOGIN_FAILED = "Discord: ログイン失敗"
+const STATUS_DISCORD_CONNECTED = "Discord: 接続済み"
+
+// インタラクションメッセージ
+const INTERACTION_USE_COMMAND_NON_PERMISSION = "このコマンドを使用する権限がありません"
+
+
+
+
 export default class MyPlugin extends Plugin {
 	settings: PluginSettings;
 	private discordClient: Client | null = null;
@@ -36,7 +56,7 @@ export default class MyPlugin extends Plugin {
 
 		// 左のリボンボタン
 		const ribbonIconEl = this.addRibbonIcon('refresh-ccw', 'Discord接続を更新', async () => {
-			new Notice('Discordクライアントの再初期化を試行中...');
+			new Notice(LOG_DISCORD_CLIENT_RE_INIT);
 			if (this.discordClient) {
 				this.discordClient.destroy();
 				this.discordClient = null;
@@ -126,7 +146,7 @@ export default class MyPlugin extends Plugin {
 		this.discordClient.once('ready', async () => {
 			console.log(`${this.discordClient?.user?.tag}としてログインしました！`);
 			new Notice(`${this.discordClient?.user?.tag}としてログインしました！`);
-			this.updateStatusBar(`Discord: 接続済み (${this.discordClient?.user?.tag})`);
+			this.updateStatusBar(STATUS_DISCORD_CONNECTED + ` (${this.discordClient?.user?.tag})`);
 			this.setupDiscordListeners();
 			if (this.settings.clientId) {
 				await this.registerSlashCommands();
@@ -137,30 +157,30 @@ export default class MyPlugin extends Plugin {
 		});
 
 		this.discordClient.on('error', (error) => {
-			console.error('Discordクライアントエラー:', error);
-			new Notice(`Discordクライアントエラー: ${error.message}`);
-			this.updateStatusBar('Discord: エラー');
+			console.error(LOG_DISCORD_CLIENT_ERROR, error);
+			new Notice(LOG_DISCORD_CLIENT_ERROR + error.message);
+			this.updateStatusBar(STATUS_DISCORD_ERROR);
 		});
 
 		this.discordClient.on('shardDisconnect', (event) => {
-			console.warn('Discordクライアントが切断されました:', event.reason);
-			new Notice('Discordクライアントが切断されました');
-			this.updateStatusBar('Discord: 未接続');
+			console.warn(LOG_DISCORD_CLIENT_DISCONNECT, event.reason);
+			new Notice(LOG_DISCORD_CLIENT_DISCONNECT + event.reason);
+			this.updateStatusBar(STATUS_DISCORD_DISCONNECT);
 		});
 
 		this.discordClient.on('shardReconnecting', () => {
-			console.log('Discordクライアントが再接続中...');
-			new Notice('Discordクライアントが再接続中...');
-			this.updateStatusBar('Discord: 再接続中...');
+			console.log(LOG_DISCORD_CLIENT_RECONNECT);
+			new Notice(LOG_DISCORD_CLIENT_RECONNECT);
+			this.updateStatusBar(STATUS_DISCORD_RECONNECT);
 		});
 
 		try {
 			await this.discordClient.login(this.settings.botToken);
 		} catch (error) {
 			if (!(error instanceof Error)) return
-			console.error('Discordへのログインに失敗しました:', error);
-			new Notice(`Discordへのログインに失敗しました: ${error.message}`);
-			this.updateStatusBar('Discord: ログイン失敗');
+			console.error(LOG_DISCORD_CLIENT_LOGIN_FAILED, error);
+			new Notice(LOG_DISCORD_CLIENT_LOGIN_FAILED + error.message);
+			this.updateStatusBar(STATUS_DISCORD_LOGIN_FAILED);
 		}
 	}
 
@@ -190,7 +210,7 @@ export default class MyPlugin extends Plugin {
 		this.discordClient.on('interactionCreate', async (interaction: Interaction) => {
 			if (interaction.isCommand()) {
 				if (this.settings.ownerId && interaction.user.id !== this.settings.ownerId) {
-					await interaction.reply({content: 'このコマンドを使用する権限がありません', ephemeral: true});
+					await interaction.reply({content: INTERACTION_USE_COMMAND_NON_PERMISSION, ephemeral: true});
 					return;
 				}
 

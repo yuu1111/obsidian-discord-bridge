@@ -17,6 +17,13 @@ const DEFAULT_SETTINGS: PluginSettings = {
 	targetNotePath: "Discord_Messages"
 }
 
+// コマンド
+const COMMAND_SET_NOTE_PATH = "setnote"
+const COMMAND_CREATE_NOTE = "createnote"
+const COMMAND_LIST_NOTE = "listnote"
+const COMMAND_SET_CHANNEL = "setchannel"
+const COMMAND_OUT_PUT_NOTE = "outputnote"
+
 export default class MyPlugin extends Plugin {
 	settings: PluginSettings;
 	private discordClient: Client | null = null;
@@ -190,28 +197,28 @@ export default class MyPlugin extends Plugin {
 				const commandInteraction = interaction as CommandInteraction;
 
 				switch (commandInteraction.commandName) {
-					case 'setnote': {
+					case COMMAND_SET_NOTE_PATH: {
 						const pathOption = commandInteraction.options.getString('path', true);
 						await commandInteraction.deferReply();
 						await this.updateTargetNote(pathOption, commandInteraction);
 						break;
 					}
-					case 'createnote': {
+					case COMMAND_CREATE_NOTE: {
 						const nameOption = commandInteraction.options.getString('name', true);
 						await this.createNewNote(nameOption, commandInteraction);
 						break;
 					}
-					case 'listnotes': {
+					case COMMAND_LIST_NOTE: {
 						await this.listObsidianNotes(commandInteraction);
 						break;
 					}
-					case 'setchannel': {
+					case COMMAND_SET_CHANNEL: {
 						const channelOption = commandInteraction.options.getChannel('channel', true);
 						await commandInteraction.deferReply();
 						await this.updateTargetChannel(channelOption.id, commandInteraction);
 						break;
 					}
-					case 'outputnote': {
+					case COMMAND_OUT_PUT_NOTE: {
 						const notePathOption = commandInteraction.options.getString('note_path', true);
 						await commandInteraction.deferReply();
 						await this.outputObsidianNote(notePathOption, commandInteraction);
@@ -230,8 +237,8 @@ export default class MyPlugin extends Plugin {
 
 				let suggestions: { name: string; value: string }[] = [];
 
-				if ((commandName === 'setnote' && focusedOption.name === 'path') ||
-					(commandName === 'outputnote' && focusedOption.name === 'note_path')) {
+				if ((commandName === COMMAND_SET_NOTE_PATH && focusedOption.name === 'path') ||
+					(commandName === COMMAND_OUT_PUT_NOTE && focusedOption.name === 'note_path')) {
 
 					const allMarkdownFiles = this.app.vault.getMarkdownFiles()
 					const filteredFiles = allMarkdownFiles.filter(file => {
@@ -274,7 +281,7 @@ export default class MyPlugin extends Plugin {
 
 		const commands = [
 			{
-				name: 'setnote',
+				name:  COMMAND_OUT_PUT_NOTE,
 				description: 'Discordメッセージを保存するノートのパスを設定します',
 				options: [
 					{
@@ -287,7 +294,7 @@ export default class MyPlugin extends Plugin {
 				],
 			},
 			{
-				name: 'createnote',
+				name: COMMAND_CREATE_NOTE,
 				description: '指定した場所にノートを作成します',
 				options: [
 					{
@@ -299,11 +306,11 @@ export default class MyPlugin extends Plugin {
 				],
 			},
 			{
-				name: 'listnotes',
+				name: COMMAND_LIST_NOTE,
 				description: 'Vault内のすべてのノートをリスト表示します',
 			},
 			{
-				name: 'setchannel',
+				name: COMMAND_SET_CHANNEL,
 				description: 'Discordメッセージをノートに保存するターゲットチャンネルを設定します',
 				options: [
 					{
@@ -315,7 +322,7 @@ export default class MyPlugin extends Plugin {
 				],
 			},
 			{
-				name: 'outputnote',
+				name: COMMAND_OUT_PUT_NOTE,
 				description: '指定したノートの内容をDiscordに出力します',
 				options: [
 					{

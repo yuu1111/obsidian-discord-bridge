@@ -1,0 +1,143 @@
+{
+  "pluginName": "Discord Bridge",
+  "pluginDescription": "Bridge between Discord and Obsidian for message synchronization",
+  "settings": {
+    "title": "Discord Bridge Plugin Settings",
+    "botToken": {
+      "name": "Bot Token",
+      "desc": "Enter your Discord bot token",
+      "placeholder": "Enter Discord bot token"
+    },
+    "clientId": {
+      "name": "Client ID",
+      "desc": "Enter your Discord bot client ID",
+      "placeholder": "Enter Discord bot client ID"
+    },
+    "channelId": {
+      "name": "Target Channel ID",
+      "desc": "Specify the Discord channel ID for the bot to monitor",
+      "placeholder": "Enter Discord channel ID"
+    },
+    "ownerId": {
+      "name": "Owner User ID",
+      "desc": "Specify your Discord user ID. Commands will only be allowed for this user",
+      "placeholder": "Enter your Discord user ID"
+    },
+    "notePath": {
+      "name": "Note Path",
+      "desc": "Specify the path to the note in the Vault where Discord messages will be appended. Do not include .md",
+      "placeholder": "Folder/Discord"
+    }
+  },
+  "commands": {
+    "setNote": {
+      "name": "setnote",
+      "description": "Set the note path for saving Discord messages",
+      "pathOption": {
+        "name": "path",
+        "description": "Full path to the note. Example: Notes/Discord"
+      }
+    },
+    "createNote": {
+      "name": "createnote",
+      "description": "Create a note at the specified location",
+      "nameOption": {
+        "name": "name",
+        "description": "Path and name of the new note. Example: Folder/NewNote"
+      }
+    },
+    "listNote": {
+      "name": "listnote",
+      "description": "List all notes in the Vault"
+    },
+    "setChannel": {
+      "name": "setchannel",
+      "description": "Set the target channel for saving Discord messages to notes",
+      "channelOption": {
+        "name": "channel",
+        "description": "Channel to monitor for messages"
+      }
+    },
+    "outputNote": {
+      "name": "outputnote",
+      "description": "Output the contents of the specified note to Discord",
+      "notePathOption": {
+        "name": "note_path",
+        "description": "Path to the note you want to output. Example: Folder/Discord"
+      }
+    }
+  },
+  "messages": {
+    "status": {
+      "error": "Discord: Error",
+      "disconnected": "Discord: Disconnected",
+      "reconnecting": "Discord: Reconnecting...",
+      "loginFailed": "Discord: Login Failed",
+      "connected": "Discord: Connected",
+      "noToken": "Discord: No Token"
+    },
+    "logs": {
+      "clientReInit": "Attempting to reinitialize Discord client...",
+      "clientError": "Discord client error:",
+      "clientDisconnect": "Discord client disconnected:",
+      "clientReconnect": "Discord client reconnecting...",
+      "loginFailed": "Failed to login to Discord:",
+      "clientDestroyed": "Discord client destroyed",
+      "clientReady": "Discord client is ready and connected",
+      "clientAlreadyReady": "Discord client is already initialized and ready",
+      "commandsRegistered": "Slash commands registered:",
+      "commandRegistrationFailed": "Failed to register slash commands:",
+      "targetChannelUpdated": "Updated Discord target channel:",
+      "targetNoteUpdated": "Updated target note path:",
+      "noteCreated": "Created new note:",
+      "folderCreated": "Created folder:",
+      "noteListOutput": "Output note list to Discord",
+      "noteContentOutput": "Output note content to Discord:",
+      "noteContentOutputSplit": "Output note content to Discord: (split messages)",
+      "messageReceived": "Received message in target channel:",
+      "messageSaved": "Saved message to",
+      "newNoteCreatedForMessage": "Created new note for Discord messages:"
+    },
+    "errors": {
+      "noPermission": "You do not have permission to use this command",
+      "unknownCommand": "Unknown command",
+      "invalidNotePath": "Invalid note path specified. Please specify a valid path. Example: Folder/Note",
+      "invalidNoteName": "Invalid note name specified",
+      "invalidChannelId": "Invalid channel ID specified. Discord channel IDs are numeric strings",
+      "noteNotFound": "Note not found. Please check the path",
+      "noteAlreadyExists": "Note already exists. Use /setnote command to select it",
+      "folderCreationFailed": "Failed to create folder",
+      "noteCreationFailed": "Failed to create note",
+      "noteReadFailed": "Failed to read or output note",
+      "messageSaveFailed": "Failed to save Discord message to note",
+      "autocompleteResponseFailed": "Failed to respond to autocomplete:",
+      "noteListRetrievalFailed": "Failed to retrieve note list. Check console for details",
+      "clientNotReady": "Discord client is not ready or application ID is not available for command registration",
+      "missingClientId": "Client ID not set. Cannot register slash commands",
+      "missingBotToken": "Bot token not set in plugin settings. Please configure it",
+      "cannotRegisterCommands": "Client ID missing. Cannot register slash commands",
+      "invalidPath": "Invalid path. Please specify a file name",
+      "noFileName": "No file name specified"
+    },
+    "success": {
+      "commandsRegistered": "Slash commands successfully registered!",
+      "targetNoteUpdated": "Updated target note path to",
+      "noteCreated": "Created new note:",
+      "folderCreated": "Created folder:",
+      "targetChannelUpdated": "Updated Discord message target channel to",
+      "noteListOutput": "Output note list to Discord",
+      "noteContentOutput": "Output note content to Discord:",
+      "loggedIn": "Logged in as"
+    },
+    "discord": {
+      "currentTargetNote": "**Current target note:**",
+      "vaultNotes": "**Notes in Vault:**",
+      "obsidianNote": "**Obsidian Note:**",
+      "noNotesFound": "No Markdown notes found in Vault",
+      "emptyNote": "Note content is empty"
+    },
+    "ribbon": {
+      "refreshConnection": "Refresh Discord connection"
+    }
+  }
+}

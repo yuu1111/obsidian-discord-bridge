@@ -1,0 +1,146 @@
+{
+  "pluginName": "Discord Bridge",
+  "pluginDescription": "DiscordとObsidianのメッセージ同期用ブリッジ",
+  "settings": {
+    "title": "Discord Bridge プラグイン設定",
+    "botToken": {
+      "name": "ボットトークン",
+      "desc": "BotのTokenを入れる",
+      "placeholder": "Discordボットのトークンを入力"
+    },
+    "clientId": {
+      "name": "クライアントID",
+      "desc": "BotのClientIDを入れる",
+      "placeholder": "DiscordボットのクライアントIDを入力"
+    },
+    "channelId": {
+      "name": "ターゲットチャンネルID",
+      "desc": "Botで監視するDiscordチャンネルのIDを指定する",
+      "placeholder": "DiscordチャンネルのIDを入力"
+    },
+    "ownerId": {
+      "name": "オーナーユーザーID",
+      "desc": "あなたのDiscordユーザーIDを指定する コマンドはこのユーザーのみに実行が許可される",
+      "placeholder": "あなたのDiscordユーザーIDを入力"
+    },
+    "notePath": {
+      "name": "ノートパス",
+      "desc": "Discordメッセージを追記するVault内のノートのパスを指定する .mdは含めないこと",
+      "placeholder": "Folder/Discord"
+    }
+  },
+  "commands": {
+    "setNote": {
+      "name": "setnote",
+      "description": "Discordメッセージを保存するノートのパスを設定します",
+      "pathOption": {
+        "name": "path",
+        "description": "ノートのフルパス 例: Notes/Discord"
+      }
+    },
+    "createNote": {
+      "name": "createnote",
+      "description": "指定した場所にノートを作成します",
+      "nameOption": {
+        "name": "name",
+        "description": "新しいノートのパスと名前 例: Folder/NewNote"
+      }
+    },
+    "listNote": {
+      "name": "listnote",
+      "description": "Vault内のすべてのノートをリスト表示します"
+    },
+    "setChannel": {
+      "name": "setchannel",
+      "description": "Discordメッセージをノートに保存するターゲットチャンネルを設定します",
+      "channelOption": {
+        "name": "channel",
+        "description": "メッセージを監視するチャンネル"
+      }
+    },
+    "outputNote": {
+      "name": "outputnote",
+      "description": "指定したノートの内容をDiscordに出力します",
+      "notePathOption": {
+        "name": "note_path",
+        "description": "出力したいノートのパス 例: Folder/Discord"
+      }
+    }
+  },
+  "messages": {
+    "status": {
+      "error": "Discord: エラー",
+      "disconnected": "Discord: 未接続",
+      "reconnecting": "Discord: 再接続中...",
+      "loginFailed": "Discord: ログイン失敗",
+      "connected": "Discord: 接続済み",
+      "noToken": "Discord: トークンなし"
+    },
+    "logs": {
+      "clientReInit": "Discordクライアントの再初期化を試行中...",
+      "clientError": "Discordクライアントエラー:",
+      "clientDisconnect": "Discordクライアントが切断されました:",
+      "clientReconnect": "Discordクライアントが再接続中...",
+      "loginFailed": "Discordへのログインに失敗しました:",
+      "clientDestroyed": "Discordクライアントが破棄されました",
+      "clientReady": "Discordクライアントの準備が完了し、接続されました",
+      "clientAlreadyReady": "Discordクライアントは既に初期化され、準備ができています",
+      "commandsRegistered": "スラッシュコマンドが登録されました:",
+      "commandRegistrationFailed": "スラッシュコマンドの登録に失敗しました:",
+      "targetChannelUpdated": "Discordターゲットチャンネルを更新しました:",
+      "targetNoteUpdated": "ターゲットノートパスを更新しました:",
+      "noteCreated": "新しいノートを作成しました:",
+      "folderCreated": "フォルダを作成しました:",
+      "noteListOutput": "ノートリストをDiscordに出力しました",
+      "noteContentOutput": "ノートの内容をDiscordに出力しました:",
+      "noteContentOutputSplit": "ノートの内容をDiscordに出力しました: (分割送信)",
+      "messageReceived": "ターゲットチャンネルでメッセージを受信しました:",
+      "messageSaved": "メッセージを保存しました:",
+      "newNoteCreatedForMessage": "Discordメッセージ用の新しいノートを作成しました:",
+      "reconnectCheckSkipped": "Discordクライアントは現在再接続中です 手動での再初期化はスキップします",
+      "disconnectionDetected": "Discordクライアントが完全に切断された状態を検知 再初期化を試行中",
+      "reconnectNotification": "Discordクライアントが切断されました 再初期化を試行中..."
+    },
+    "errors": {
+      "noPermission": "このコマンドを使用する権限がありません",
+      "unknownCommand": "不明なコマンドです",
+      "invalidNotePath": "無効なノートパスが指定されました 有効なパスを指定してください 例: Folder/Note",
+      "invalidNoteName": "無効なノート名が指定されました",
+      "invalidChannelId": "無効なチャンネルIDが指定されました DiscordのチャンネルIDは数字の羅列です",
+      "noteNotFound": "ノートが見つかりませんでした パスを確認してください",
+      "noteAlreadyExists": "ノートは既に存在します /setnote コマンドで選択してください",
+      "folderCreationFailed": "フォルダの作成に失敗しました",
+      "noteCreationFailed": "ノートの作成に失敗しました",
+      "noteReadFailed": "ノートの読み込みまたは出力に失敗しました",
+      "messageSaveFailed": "Discordメッセージをノートに保存できませんでした",
+      "autocompleteResponseFailed": "オートコンプリートの応答に失敗しました:",
+      "noteListRetrievalFailed": "ノートリストの取得に失敗しました コンソールを確認してください",
+      "clientNotReady": "Discordクライアントが準備できていないか、アプリケーションIDがコマンド登録に利用できません",
+      "missingClientId": "クライアントIDが設定されていません スラッシュコマンドを登録できません",
+      "missingBotToken": "ボットトークンがプラグイン設定で設定されていません 設定してください",
+      "cannotRegisterCommands": "クライアントIDが不足しています スラッシュコマンドを登録できません",
+      "invalidPath": "無効なパスです ファイル名を指定してください",
+      "noFileName": "ファイル名が指定されていません"
+    },
+    "success": {
+      "commandsRegistered": "スラッシュコマンドが正常に登録されました！",
+      "targetNoteUpdated": "ターゲットノートパスを更新しました:",
+      "noteCreated": "新しいノートを作成しました:",
+      "folderCreated": "フォルダを作成しました:",
+      "targetChannelUpdated": "Discordメッセージ保存のターゲットチャンネルを更新しました:",
+      "noteListOutput": "ノートリストをDiscordに出力しました",
+      "noteContentOutput": "ノートの内容をDiscordに出力しました:",
+      "loggedIn": "ログインしました:"
+    },
+    "discord": {
+      "currentTargetNote": "**現在保存しているノート:**",
+      "vaultNotes": "**Vault内のノート:**",
+      "obsidianNote": "**Obsidianノート:**",
+      "noNotesFound": "Vault内にMarkdownノートは見つかりませんでした",
+      "emptyNote": "ノートの内容は空です"
+    },
+    "ribbon": {
+      "refreshConnection": "Discord接続を更新"
+    }
+  }
+}

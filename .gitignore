@@ -1,5 +1,6 @@
 # vscode
-.vscode 
+.vscode/
+!.vscode/tasks.json 
 
 # Intellij
 *.iml
@@ -20,6 +21,3 @@ data.json
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
-
-# Claude Code settings
-.claude/

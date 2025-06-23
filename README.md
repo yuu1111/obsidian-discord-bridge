@@ -68,6 +68,24 @@ npm run build
 
 3. Restart Obsidian and enable in Settings
 
+## Security & Privacy
+
+**Data Handling:**
+- Bot tokens and client IDs are stored locally in Obsidian with Base64 encoding
+- No data is sent to external servers except Discord's official APIs
+- Only messages from the configured channel are processed
+- User authentication prevents unauthorized command usage
+
+**Permissions:**
+- The bot only requires minimal Discord permissions: Send Messages and Use Slash Commands
+- Bot cannot read DMs unless explicitly configured
+- Plugin operates entirely within your local Obsidian vault
+
+**Best Practices:**
+- Keep your bot token secure and never share it
+- Regularly review configured channels and user permissions
+- Use a dedicated Discord server for testing if needed
+
 ## Troubleshooting
 
 **Bot doesn't respond to commands?**

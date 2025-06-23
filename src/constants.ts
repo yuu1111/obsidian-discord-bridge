@@ -8,7 +8,7 @@ export const DISCORD_COMMANDS = {
 
 export const DISCORD_CONSTANTS = {
   MAX_MESSAGE_LENGTH: 1990,
-  RECONNECT_CHECK_INTERVAL: 5 * 60 * 1000, // 5 minutes
+  RECONNECT_CHECK_INTERVAL: 15 * 60 * 1000, // 15 minutes - less frequent checking
   MAX_PATH_LENGTH: 255,
   MAX_AUTOCOMPLETE_SUGGESTIONS: 25,
 } as const;

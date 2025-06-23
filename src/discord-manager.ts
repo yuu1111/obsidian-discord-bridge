@@ -20,9 +20,13 @@ export class DiscordManager {
   private isReconnecting = false;
   private lastConnectionAttempt = 0;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 3;
-  private reconnectDelay = 30000; // 30 seconds
+  private maxReconnectAttempts = 5;
+  private baseReconnectDelay = 60000; // 1 minute base delay
+  private maxReconnectDelay = 600000; // 10 minutes max delay
   private connectionCheckInterval: NodeJS.Timeout | null = null;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private lastDisconnectTime = 0;
+  private minimumStableConnectionTime = 300000; // 5 minutes stable before reset
 
   constructor(
     private settings: PluginSettings,
@@ -68,10 +72,27 @@ export class DiscordManager {
       this.reconnectAttempts = 0; // Reset on successful connection
     } catch (error) {
       if (!(error instanceof Error)) return;
+      
+      let errorMessage = error.message;
+      let shouldRetry = true;
+      
+      // Provide more specific error messages for common issues
+      if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+        errorMessage = 'Invalid bot token. Please check your Discord bot token in settings.';
+        shouldRetry = false; // Don't retry authentication errors
+      } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
+        errorMessage = 'Network connection failed. Please check your internet connection.';
+      } else if (error.message.includes('rate limit') || error.message.includes('429')) {
+        errorMessage = 'Discord rate limit exceeded. Retrying in 30 seconds...';
+      }
+      
       console.error(t('messages.logs.loginFailed'), error);
-      new Notice(t('messages.logs.loginFailed') + error.message);
+      new Notice(`${t('messages.logs.loginFailed')} ${errorMessage}`);
       this.callbacks.onStatusUpdate(t('messages.status.loginFailed'));
-      this.scheduleReconnect();
+      
+      if (shouldRetry) {
+        this.scheduleReconnect();
+      }
     }
   }
 
@@ -82,6 +103,10 @@ export class DiscordManager {
       console.log(`${t('messages.success.loggedIn')} ${this.client?.user?.tag}!`);
       new Notice(`${t('messages.success.loggedIn')} ${this.client?.user?.tag}!`);
       this.callbacks.onStatusUpdate(`${t('messages.status.connected')} (${this.client?.user?.tag})`);
+      
+      // Reset reconnection attempts on successful connection
+      this.resetReconnectionState();
+      
       this.setupInteractionListeners();
       
       if (this.settings.clientId) {
@@ -101,9 +126,17 @@ export class DiscordManager {
     this.client.on('shardDisconnect', (event) => {
       console.warn(t('messages.logs.clientDisconnect'), event.reason);
       this.callbacks.onStatusUpdate(t('messages.status.disconnected'));
-      // Don't show notice for expected disconnections
-      if (event.code !== 1000) {
+      this.lastDisconnectTime = Date.now();
+      
+      // Only show notice for unexpected disconnections
+      if (event.code !== 1000 && event.code !== 1001) {
         new Notice(t('messages.logs.clientDisconnect') + event.reason);
+      }
+      
+      // Don't immediately try to reconnect for certain error codes
+      if (this.shouldSkipReconnection(event.code)) {
+        console.log(`Skipping reconnection for disconnect code: ${event.code}`);
+        return;
       }
     });
 
@@ -355,8 +388,13 @@ export class DiscordManager {
     
     const now = Date.now();
     
-    // If we're already trying to reconnect and it's been too recent, skip
-    if (this.isReconnecting && (now - this.lastConnectionAttempt) < this.reconnectDelay) {
+    // If we're already trying to reconnect, skip
+    if (this.isReconnecting) {
+      return;
+    }
+
+    // If we recently attempted reconnection, wait longer
+    if ((now - this.lastConnectionAttempt) < this.getReconnectDelay()) {
       return;
     }
 
@@ -365,7 +403,13 @@ export class DiscordManager {
                           !this.client.isReady() ||
                           this.client.ws.status === Constants.Status.DISCONNECTED;
 
-    if (needsReconnect && !this.isReconnecting) {
+    if (needsReconnect) {
+      // Wait a bit after disconnect before attempting reconnection
+      const timeSinceDisconnect = now - this.lastDisconnectTime;
+      if (timeSinceDisconnect < 30000) { // Wait at least 30 seconds after disconnect
+        return;
+      }
+      
       this.scheduleReconnect();
     }
   }
@@ -373,14 +417,21 @@ export class DiscordManager {
   private scheduleReconnect(): void {
     const now = Date.now();
     
+    // Prevent multiple concurrent reconnection attempts
+    if (this.isReconnecting || this.reconnectTimeout) {
+      return;
+    }
+    
     // Don't attempt reconnect too frequently
-    if ((now - this.lastConnectionAttempt) < this.reconnectDelay) {
+    const reconnectDelay = this.getReconnectDelay();
+    if ((now - this.lastConnectionAttempt) < reconnectDelay) {
       return;
     }
 
     // Don't exceed max reconnect attempts
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.log('Max reconnect attempts reached. Stopping automatic reconnection.');
+      this.callbacks.onStatusUpdate('Discord: Max retry attempts reached');
       return;
     }
 
@@ -388,22 +439,68 @@ export class DiscordManager {
     this.reconnectAttempts++;
     this.isReconnecting = true;
 
-    console.log(t('messages.logs.clientReInit'));
-    new Notice(t('messages.logs.clientReInit'));
+    console.log(`${t('messages.logs.clientReInit')} (Attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    new Notice(`${t('messages.logs.clientReInit')} (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    this.callbacks.onStatusUpdate(`Discord: Reconnecting (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
 
-    // Delay the reconnection attempt
-    setTimeout(() => {
+    // Use exponential backoff with jitter
+    const delay = Math.min(reconnectDelay + (Math.random() * 10000), this.maxReconnectDelay);
+    
+    this.reconnectTimeout = setTimeout(() => {
+      this.reconnectTimeout = null;
       this.createClient();
-    }, 5000); // 5 second delay
+    }, delay);
+  }
+
+  private getReconnectDelay(): number {
+    // Exponential backoff: base * (2 ^ attempts)
+    return Math.min(
+      this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts),
+      this.maxReconnectDelay
+    );
+  }
+
+  private resetReconnectionState(): void {
+    const now = Date.now();
+    
+    // If we've been connected for a reasonable time, reset retry count
+    if (this.lastConnectionAttempt > 0 && (now - this.lastConnectionAttempt) > this.minimumStableConnectionTime) {
+      this.reconnectAttempts = 0;
+      console.log('Connection stable, reset reconnection attempts');
+    }
+    
+    this.isReconnecting = false;
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+  }
+
+  private shouldSkipReconnection(code: number): boolean {
+    // Skip reconnection for certain Discord close codes
+    const skipCodes = [
+      4004, // Authentication failed
+      4010, // Invalid shard
+      4011, // Sharding required
+      4012, // Invalid API version
+      4013, // Invalid intent(s)
+      4014  // Disallowed intent(s)
+    ];
+    return skipCodes.includes(code);
   }
 
   async forceReconnect(): Promise<void> {
+    console.log('Force reconnect requested');
+    
+    // Clean up any existing reconnection state
+    this.resetReconnectionState();
     this.reconnectAttempts = 0; // Reset attempts for manual reconnection
+    
     if (this.client) {
       this.client.destroy();
       this.client = null;
     }
-    this.isReconnecting = false;
+    
     await this.initialize();
   }
 
@@ -424,11 +521,24 @@ export class DiscordManager {
   }
 
   destroy(): void {
+    console.log('DiscordManager destroy called');
+    
+    // Clear all intervals and timeouts
     if (this.connectionCheckInterval) {
       clearInterval(this.connectionCheckInterval);
       this.connectionCheckInterval = null;
     }
     
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    
+    // Reset reconnection state
+    this.isReconnecting = false;
+    this.reconnectAttempts = 0;
+    
+    // Destroy Discord client
     if (this.client) {
       this.client.destroy();
       console.log(t('messages.logs.clientDestroyed'));

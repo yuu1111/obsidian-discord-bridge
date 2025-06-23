@@ -3,7 +3,7 @@
 	"name": "Discord Bridge",
 	"version": "1.1.0",
 	"minAppVersion": "0.18.10",
-	"description": "A bridge plugin that connects Discord and Obsidian for seamless message synchronization and note management with multi-language support (English/Japanese).",
+	"description": "Bridge Discord and Obsidian for automatic message sync and remote note management.",
 	"author": "yuu1111",
 	"authorUrl": "https://github.com/yuu1111",
 	"fundingUrl": "https://github.com/sponsors/yuu1111",

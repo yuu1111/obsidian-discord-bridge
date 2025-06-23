@@ -65,10 +65,7 @@ jobs:
       run: |
         echo "Generating checksums..."
         sha256sum obsidian-discord-bridge-${{ steps.get_version.outputs.VERSION }}.zip > checksums.txt
-        sha256sum main.js >> checksums.txt
-        sha256sum manifest.json >> checksums.txt
-        sha256sum styles.css >> checksums.txt
-        echo "Checksums:"
+        echo "ZIP file checksum:"
         cat checksums.txt
         
     - name: Create GitHub Release
@@ -76,27 +73,21 @@ jobs:
       with:
         files: |
           obsidian-discord-bridge-${{ steps.get_version.outputs.VERSION }}.zip
-          main.js
-          manifest.json
-          styles.css
           checksums.txt
         body: |
           ## 🚀 Release ${{ steps.get_version.outputs.VERSION }}
           
           ${{ steps.changelog.outputs.RELEASE_NOTES }}
           
-          ### 📦 Easy Installation
-          **Recommended:** Download `obsidian-discord-bridge-${{ steps.get_version.outputs.VERSION }}.zip`
-          
-          1. Download the zip file below
+          ### 📦 Installation
+          1. Download `obsidian-discord-bridge-${{ steps.get_version.outputs.VERSION }}.zip`
           2. Extract to: `YourVault/.obsidian/plugins/obsidian-discord-bridge/`
           3. Restart Obsidian
           4. Enable "Discord Bridge" in Settings → Community plugins
           
-          ### 🔧 Manual Installation
-          Download individual files and place in `YourVault/.obsidian/plugins/obsidian-discord-bridge/`:
+          **Note:** The zip file contains all required plugin files:
           - `main.js` - Main plugin code
-          - `manifest.json` - Plugin metadata
+          - `manifest.json` - Plugin metadata  
           - `styles.css` - Plugin styles
           
           ### 🔒 Security

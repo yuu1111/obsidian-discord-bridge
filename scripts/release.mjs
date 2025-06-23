@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { execSync } from "child_process";
 import { generateChangelog } from "./generate-changelog.mjs";
+import { generateChangelogJP } from "./generate-changelog-jp.mjs";
 
 function validateVersion(version) {
   const semverRegex = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*|[0-9a-zA-Z-]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*|[0-9a-zA-Z-]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
@@ -88,6 +89,15 @@ function main() {
     console.log('✅ Changelog generated successfully');
   } catch (error) {
     console.error('⚠️ Changelog generation failed:', error.message);
+  }
+
+  // Generate Japanese changelog
+  console.log('🔄 Generating Japanese changelog...');
+  try {
+    generateChangelogJP(newVersion);
+    console.log('✅ Japanese changelog generated successfully');
+  } catch (error) {
+    console.error('⚠️ Japanese changelog generation failed:', error.message);
   }
 
   // Build again with new version

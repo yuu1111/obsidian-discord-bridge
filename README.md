@@ -124,19 +124,7 @@ If this plugin is helpful:
 
 ## Changelog
 
-### v1.1.0
-- 🌐 Added full internationalization support with i18next
-- 🔧 Improved Discord reconnection logic to prevent infinite loops
-- 🏗️ Major code refactoring for better maintainability
-- 🛡️ Enhanced error handling and connection stability
-- 📝 Better autocomplete support for Discord commands
-- 🎯 Fixed command option validation issues
-
-### v1.0.0
-- 🎉 Initial release
-- ⚡ Basic Discord message synchronization
-- 🎮 Discord slash commands
-- 📁 Note management features
+For detailed release notes and version history, see [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

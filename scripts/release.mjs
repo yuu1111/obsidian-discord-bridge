@@ -2,6 +2,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { execSync } from "child_process";
+import { generateChangelog } from "./generate-changelog.mjs";
 
 function validateVersion(version) {
   const semverRegex = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*|[0-9a-zA-Z-]*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*|[0-9a-zA-Z-]*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
@@ -79,6 +80,15 @@ function main() {
   
   // Update version files
   updateVersionFiles(newVersion);
+
+  // Generate changelog
+  console.log('🔄 Generating changelog...');
+  try {
+    generateChangelog(newVersion);
+    console.log('✅ Changelog generated successfully');
+  } catch (error) {
+    console.error('⚠️ Changelog generation failed:', error.message);
+  }
 
   // Build again with new version
   runCommand('npm run build', 'Building with new version');

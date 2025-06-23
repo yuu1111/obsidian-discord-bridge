@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-discord-bridge-plugin",
 	"name": "Discord Bridge",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"minAppVersion": "0.18.10",
 	"description": "Bridge Discord and Obsidian for automatic message sync and remote note management.",
 	"author": "yuu1111",

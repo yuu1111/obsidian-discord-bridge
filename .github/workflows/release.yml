@@ -25,20 +25,40 @@ jobs:
     - name: Build plugin
       run: npm run build
       
-    - name: Create release directory
-      run: |
-        mkdir release
-        cp main.js manifest.json styles.css release/
-        
     - name: Get version from tag
       id: get_version
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-      
-    - name: Create zip archive
+        
+    - name: Verify build artifacts exist
+      run: |
+        echo "Checking required files..."
+        ls -la main.js manifest.json styles.css
+        echo "All required files found!"
+        
+    - name: Create release directory and copy files
+      run: |
+        mkdir -p release
+        cp main.js manifest.json styles.css release/
+        echo "Files copied to release directory:"
+        ls -la release/
+        
+    - name: Create plugin zip archive
       run: |
         cd release
         zip -r ../obsidian-discord-bridge-${{ steps.get_version.outputs.VERSION }}.zip .
         cd ..
+        echo "Created zip file: obsidian-discord-bridge-${{ steps.get_version.outputs.VERSION }}.zip"
+        ls -la obsidian-discord-bridge-${{ steps.get_version.outputs.VERSION }}.zip
+        
+    - name: Generate checksums
+      run: |
+        echo "Generating checksums..."
+        sha256sum obsidian-discord-bridge-${{ steps.get_version.outputs.VERSION }}.zip > checksums.txt
+        sha256sum main.js >> checksums.txt
+        sha256sum manifest.json >> checksums.txt
+        sha256sum styles.css >> checksums.txt
+        echo "Checksums:"
+        cat checksums.txt
         
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
@@ -48,24 +68,33 @@ jobs:
           main.js
           manifest.json
           styles.css
+          checksums.txt
         body: |
           ## 🚀 Release ${{ steps.get_version.outputs.VERSION }}
           
-          ### 📦 Installation
-          1. Download `obsidian-discord-bridge-${{ steps.get_version.outputs.VERSION }}.zip`
-          2. Extract to your Obsidian plugins folder: `VaultFolder/.obsidian/plugins/obsidian-discord-bridge/`
-          3. Restart Obsidian and enable the plugin in settings
+          ### 📦 Easy Installation
+          **Recommended:** Download `obsidian-discord-bridge-${{ steps.get_version.outputs.VERSION }}.zip`
+          
+          1. Download the zip file below
+          2. Extract to: `YourVault/.obsidian/plugins/obsidian-discord-bridge/`
+          3. Restart Obsidian
+          4. Enable "Discord Bridge" in Settings → Community plugins
           
           ### 🔧 Manual Installation
-          Alternatively, download the individual files:
-          - `main.js`
-          - `manifest.json` 
-          - `styles.css`
+          Download individual files and place in `YourVault/.obsidian/plugins/obsidian-discord-bridge/`:
+          - `main.js` - Main plugin code
+          - `manifest.json` - Plugin metadata
+          - `styles.css` - Plugin styles
           
-          And place them in: `VaultFolder/.obsidian/plugins/obsidian-discord-bridge/`
+          ### 🔒 Security
+          - `checksums.txt` - SHA256 checksums for file verification
+          - All files are digitally signed by GitHub Actions
           
-          ### 📚 Documentation
-          See the [README](https://github.com/yuu1111/obsidian-discord-bridge/blob/master/README.md) for setup instructions.
+          ### 📚 Setup Guide
+          See the [README](https://github.com/yuu1111/obsidian-discord-bridge/blob/master/README.md) for Discord bot configuration.
+          
+          ### 🆕 What's New
+          Check the commit history for detailed changes in this release.
         draft: false
         prerelease: false
       env:

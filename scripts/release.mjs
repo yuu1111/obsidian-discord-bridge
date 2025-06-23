@@ -83,6 +83,16 @@ function main() {
   // Build again with new version
   runCommand('npm run build', 'Building with new version');
 
+  // Create release package for local testing
+  console.log('🔄 Creating release package for testing...');
+  runCommand('mkdir -p dist', 'Creating dist directory');
+  runCommand('cp main.js manifest.json styles.css dist/', 'Copying files to dist');
+  runCommand(`cd dist && zip -r ../obsidian-discord-bridge-${newVersion}.zip .`, 'Creating test zip package');
+  
+  console.log(`✅ Test package created: obsidian-discord-bridge-${newVersion}.zip`);
+  console.log('📁 Files in package:');
+  runCommand(`unzip -l obsidian-discord-bridge-${newVersion}.zip`, 'Listing zip contents');
+
   // Create git commit and tag
   runCommand('git add .', 'Staging changes');
   runCommand(`git commit -m "chore: release v${newVersion}"`, 'Creating release commit');
